@@ -2,9 +2,9 @@ import streamlit as st
 import time
 import random
 
-# 명언 리스트
+# --- 명언 리스트 ---
 QUOTES = [
-    "성공은 작은 노력이 반복될 때 찾아온다.",
+    "성공은 작은 노력이 반복될 때 나타난다.",
     "오늘의 노력은 내일의 자산이다.",
     "지금의 고통은 미래의 힘이다.",
     "작은 습관이 큰 변화를 만든다.",
@@ -14,7 +14,7 @@ QUOTES = [
     "끝까지 해내는 자가 진정한 승자다."
 ]
 
-# 세션 상태 초기화
+# --- 세션 상태 초기화 ---
 if "running" not in st.session_state:
     st.session_state.running = False
 if "cycle" not in st.session_state:
@@ -23,57 +23,75 @@ if "focus_time" not in st.session_state:
     st.session_state.focus_time = 25
 if "break_time" not in st.session_state:
     st.session_state.break_time = 5
+if "remaining_focus" not in st.session_state:
+    st.session_state.remaining_focus = st.session_state.focus_time * 60
+if "remaining_break" not in st.session_state:
+    st.session_state.remaining_break = st.session_state.break_time * 60
+if "in_focus_phase" not in st.session_state:
+    st.session_state.in_focus_phase = True
 if "stats" not in st.session_state:
     st.session_state.stats = []
 
-st.title("⏳ 뽀모도로 공부 타이머")
-st.write("사이클마다 새로운 명언이 나타납니다! ✨")
+# --- UI ---
+st.title("⏳ 이어서 실행 가능한 뽀모도로 타이머")
+st.write("정지 후에도 이어서 진행 가능합니다. 🔄")
 
-# 타이머 실행 중이 아닐 때만 시간 선택 가능
-if not st.session_state.running:
-    st.session_state.focus_time = st.number_input("집중 시간 (분)", 1, 120, 25)
-    st.session_state.break_time = st.number_input("휴식 시간 (분)", 1, 60, 5)
-    if st.button("▶ 시작"):
-        st.session_state.running = True
+# 입력창 (실행 중이 아닐 때만 보이게)
+if not st.session_state.running and st.session_state.remaining_focus == st.session_state.focus_time * 60:
+    st.session_state.focus_time = st.number_input("집중 시간 (분)", 1, 120, st.session_state.focus_time)
+    st.session_state.break_time = st.number_input("휴식 시간 (분)", 1, 60, st.session_state.break_time)
+    st.session_state.remaining_focus = st.session_state.focus_time * 60
+    st.session_state.remaining_break = st.session_state.break_time * 60
 
-# 정지 버튼
-if st.session_state.running:
-    if st.button("⏹ 정지"):
-        st.session_state.running = False
+if st.button("▶ 시작/이어하기"):
+    st.session_state.running = True
 
-# 타이머 표시 영역
+if st.button("⏹ 정지"):
+    st.session_state.running = False
+
+# --- 타이머 표시 영역 ---
 timer_placeholder = st.empty()
 quote_placeholder = st.empty()
 
-def run_timer(seconds, label):
+# --- 타이머 함수 ---
+def run_timer(remaining_seconds, label):
     start_time = time.time()
-    end_time = start_time + seconds
+    end_time = start_time + remaining_seconds
     while time.time() < end_time and st.session_state.running:
         remaining = int(end_time - time.time())
         mins, secs = divmod(remaining, 60)
         timer_placeholder.markdown(f"### ⏰ {label} 남은 시간: **{mins:02d}:{secs:02d}**")
         time.sleep(1)
+    return remaining if st.session_state.running else int(end_time - time.time())
 
-# 사이클 실행
+# --- 사이클 실행 ---
 if st.session_state.running:
-    st.session_state.cycle += 1
-    quote = random.choice(QUOTES)
-    quote_placeholder.markdown(f"💡 오늘의 명언: *{quote}*")
+    # 명언 표시 (한 번만)
+    quote_placeholder.markdown(f"💡 오늘의 명언: *{random.choice(QUOTES)}*")
 
-    # 집중 시간
-    run_timer(st.session_state.focus_time * 60, "집중")
-    if st.session_state.running:
-        st.session_state.stats.append(
-            {"cycle": st.session_state.cycle, "focus": st.session_state.focus_time, "break": st.session_state.break_time}
-        )
-        # 휴식 시간
-        run_timer(st.session_state.break_time * 60, "휴식")
+    if st.session_state.in_focus_phase:
+        st.session_state.remaining_focus = run_timer(st.session_state.remaining_focus, "집중")
+        if st.session_state.remaining_focus <= 0:
+            st.success("✅ 집중 완료! 휴식 시간입니다.")
+            st.session_state.stats.append(("집중", st.session_state.focus_time))
+            st.session_state.in_focus_phase = False
+            st.session_state.remaining_break = st.session_state.break_time * 60
+    else:
+        st.session_state.remaining_break = run_timer(st.session_state.remaining_break, "휴식")
+        if st.session_state.remaining_break <= 0:
+            st.success("☕ 휴식 완료! 다시 집중 시작!")
+            st.session_state.stats.append(("휴식", st.session_state.break_time))
+            st.session_state.in_focus_phase = True
+            st.session_state.remaining_focus = st.session_state.focus_time * 60
+            st.session_state.cycle += 1
 
-# 공부 통계 표시
-st.write("📊 공부 통계")
-if len(st.session_state.stats) > 0:
-    st.table(st.session_state.stats)
+# --- 통계 표시 ---
+st.subheader("📊 공부 통계")
+if st.session_state.stats:
+    total_focus = sum(t for phase, t in st.session_state.stats if phase == "집중")
+    total_break = sum(t for phase, t in st.session_state.stats if phase == "휴식")
+    st.write(f"총 집중 시간: **{total_focus}분**")
+    st.write(f"총 휴식 시간: **{total_break}분**")
+    st.write(f"완료한 사이클 수: **{st.session_state.cycle}회**")
 else:
     st.write("아직 기록이 없습니다.")
-
-
