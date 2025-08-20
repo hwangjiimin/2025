@@ -2,85 +2,92 @@ import streamlit as st
 import time
 import random
 
-# 웹페이지 기본 설정
-st.set_page_config(page_title="뽀모도로 타이머 ⏳", page_icon="🍅", layout="centered")
+st.set_page_config(page_title="Pomodoro Timer", page_icon="⏳", layout="centered")
 
-st.title("🍅 뽀모도로 공부 타이머")
-st.write("집중 ⏰ → 휴식 ☕ → 다시 집중! 반복하며 효율적으로 공부하세요.")
+# --- 세션 상태 초기화 ---
+if "running" not in st.session_state:
+    st.session_state.running = False
+if "cycle" not in st.session_state:
+    st.session_state.cycle = 0
+if "focus_time" not in st.session_state:
+    st.session_state.focus_time = 25
+if "break_time" not in st.session_state:
+    st.session_state.break_time = 5
+if "stats" not in st.session_state:
+    st.session_state.stats = []
+if "stop_requested" not in st.session_state:
+    st.session_state.stop_requested = False
 
-# 동기부여 명언 리스트
+# --- 명언 모음 ---
 quotes = [
-    "성공은 작은 노력이 반복될 때 찾아온다. – 로버트 콜리어",
-    "노력하는 자에게 불가능은 없다. – 알렉산더 대왕",
-    "포기하지 말라. 지금이 바로 시작할 시간이다. – 노먼 빈센트 필",
-    "위대한 일은 열정을 잃지 않고 계속 나아가는 사람에게 찾아온다. – 윈스턴 처칠",
-    "오늘 걷지 않으면 내일은 뛰어야 한다. – 이소룡",
-    "천재는 노력하는 사람을 이길 수 없고, 노력하는 사람은 즐기는 사람을 이길 수 없다. – 공자",
-    "작은 기회로부터 종종 위대한 업적이 시작된다. – 데모스테네스",
-    "노력은 배신하지 않는다. – 일본 속담",
+    "성공은 작은 노력이 반복된 결과다. – 로버트 콜리어",
     "오늘 할 수 있는 일을 내일로 미루지 마라. – 벤자민 프랭클린",
-    "실패는 성공의 어머니이다. – 속담",
-    "꾸준함은 천재를 이긴다. – 속담",
-    "시작이 반이다. – 아리스토텔레스",
-    "꿈은 이루어지기 전까지는 항상 불가능해 보인다. – 넬슨 만델라",
-    "천리 길도 한 걸음부터 시작된다. – 노자",
-    "포기하지 않으면 아직 끝난 게 아니다. – 마이클 조던",
-    "지식에 대한 투자는 최고의 이자율을 낸다. – 벤자민 프랭클린",
-    "성공은 준비된 자에게 온다. – 루이 파스퇴르",
-    "가장 큰 위험은 위험을 감수하지 않는 것이다. – 마크 저커버그",
-    "성공은 행복의 열쇠가 아니라, 행복이 성공의 열쇠다. – 알베르트 슈바이처",
-    "작은 습관이 큰 차이를 만든다. – 제임스 클리어",
+    "포기하지 않는 사람이 결국 승리한다. – 나폴레온",
+    "위대한 일은 열정을 가지고 해야 한다. – 헤겔",
+    "작은 습관이 큰 변화를 만든다. – 제임스 클리어",
+    "성공의 비밀은 꾸준함에 있다. – 아리스토텔레스",
+    "천재는 1%의 영감과 99%의 노력이다. – 토마스 에디슨",
+    "할 수 있다고 믿으면 이미 반은 이룬 것이다. – 시어도어 루스벨트",
+    "노력하는 사람에게 불가능은 없다. – 알렉산더 대왕",
+    "실패는 성공의 어머니이다. – 속담"
 ]
 
-# 사용자 입력 (집중 / 휴식 시간 설정)
-focus_minutes = st.number_input("집중 시간 (분)", min_value=1, max_value=120, value=25, step=1)
-break_minutes = st.number_input("휴식 시간 (분)", min_value=1, max_value=60, value=5, step=1)
-cycles = st.number_input("반복 횟수 (사이클 수)", min_value=1, max_value=10, value=4, step=1)
-
-# 통계 저장용 세션 상태 초기화
-if "total_focus" not in st.session_state:
-    st.session_state.total_focus = 0
-if "total_break" not in st.session_state:
-    st.session_state.total_break = 0
-if "total_cycles" not in st.session_state:
-    st.session_state.total_cycles = 0
-
-# 타이머 함수
-def run_timer(total_seconds, phase_name, color="🔴"):
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-
-    for i in range(total_seconds):
-        mins, secs = divmod(total_seconds - i, 60)
-        timer_text = f"{color} {phase_name} 중: {mins:02d}:{secs:02d}"
-        status_text.markdown(f"### {timer_text}")
-        progress_bar.progress((i + 1) / total_seconds)
+# --- 타이머 함수 ---
+def pomodoro_timer(minutes, phase):
+    seconds = minutes * 60
+    start_time = time.time()
+    while seconds > 0:
+        if st.session_state.stop_requested:  # 정지 요청 시 종료
+            st.session_state.stop_requested = False
+            st.session_state.running = False
+            st.warning("⏹ 사이클이 중지되었습니다.")
+            return False
+        mins, secs = divmod(seconds, 60)
+        timer_display = f"{mins:02d}:{secs:02d}"
+        st.metric(f"{phase} 남은 시간", timer_display)
         time.sleep(1)
+        seconds -= 1
+    return True
 
-# 시작 버튼
-if st.button("🚀 뽀모도로 시작하기"):
-    for cycle in range(1, cycles + 1):
-        # 사이클별 명언 표시
-        st.info(f"💡 {cycle}번째 사이클 명언: *{random.choice(quotes)}*")
+# --- UI ---
+st.title("⏳ 뽀모도로 공부 타이머")
 
-        # 집중 시간
-        st.success(f"✅ {cycle}번째 집중 시간 시작!")
-        run_timer(int(focus_minutes * 60), "집중", "🔥")
-        st.session_state.total_focus += focus_minutes
+if not st.session_state.running:
+    st.subheader("공부/휴식 시간을 설정하세요")
+    st.session_state.focus_time = st.number_input("공부 시간 (분)", min_value=1, max_value=120, value=25)
+    st.session_state.break_time = st.number_input("휴식 시간 (분)", min_value=1, max_value=60, value=5)
 
-        # 휴식 시간
-        st.warning("☕ 휴식 시간 시작!")
-        run_timer(int(break_minutes * 60), "휴식", "💤")
-        st.session_state.total_break += break_minutes
+    if st.button("▶ 시작하기"):
+        st.session_state.running = True
+        st.session_state.cycle += 1
+        st.session_state.stop_requested = False
+else:
+    # 정지 버튼
+    if st.button("⏹ 정지하기"):
+        st.session_state.stop_requested = True
 
-        st.session_state.total_cycles += 1
+    # 명언 표시 (사이클마다 다르게)
+    st.info(f"💡{random.choice(quotes)}")
 
-    st.balloons()
-    st.success("🎉 모든 뽀모도로 사이클이 끝났습니다! 고생하셨어요 💪")
+    # --- 사이클 실행 ---
+    with st.spinner("공부 사이클 진행 중..."):
+        if pomodoro_timer(st.session_state.focus_time, "공부"):
+            st.success("공부 완료! 잠깐 휴식을 취하세요. 🌿")
+            st.session_state.stats.append(("공부", st.session_state.focus_time))
 
-# 통계 표시
+        if not st.session_state.stop_requested:  # 정지 안했으면 휴식 실행
+            if pomodoro_timer(st.session_state.break_time, "휴식"):
+                st.success("휴식 완료! 다시 집중할 시간입니다. 🚀")
+                st.session_state.stats.append(("휴식", st.session_state.break_time))
+
+    st.session_state.running = False  # 사이클 종료 후 다시 설정창 보이게
+
+# --- 통계 ---
 st.subheader("📊 공부 시간 통계")
-st.write(f"총 집중 시간: **{st.session_state.total_focus} 분**")
-st.write(f"총 휴식 시간: **{st.session_state.total_break} 분**")
-st.write(f"완료한 사이클 수: **{st.session_state.total_cycles} 회**")
-st.write(f"총 공부 관련 시간: **{st.session_state.total_focus + st.session_state.total_break} 분**")
+if st.session_state.stats:
+    total_focus = sum(t for phase, t in st.session_state.stats if phase == "공부")
+    st.write(f"총 공부한 시간: **{total_focus}분**")
+    st.write(st.session_state.stats)
+else:
+    st.write("아직 기록이 없습니다.")
+
