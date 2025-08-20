@@ -74,7 +74,6 @@ else:
         run_timer(int(st.session_state.focus_minutes * 60), "집중", "🔥")
         st.session_state.total_focus += st.session_state.focus_minutes
 
-        st.warning("☕ 휴식 시간 시작!")
         run_timer(int(st.session_state.break_minutes * 60), "휴식", "💤")
         st.session_state.total_break += st.session_state.break_minutes
 
