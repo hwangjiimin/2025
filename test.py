@@ -1,16 +1,14 @@
 import streamlit as st
+import time
 import random
 
-# -----------------------------
 # 웹페이지 기본 설정
-# -----------------------------
 st.set_page_config(page_title="뽀모도로 타이머 ⏳", page_icon="🍅", layout="centered")
+
 st.title("🍅 뽀모도로 공부 타이머")
 st.write("집중 ⏰ → 휴식 ☕ → 다시 집중! 반복하며 효율적으로 공부하세요.")
 
-# -----------------------------
 # 동기부여 명언 리스트
-# -----------------------------
 quotes = [
     "성공은 작은 노력이 반복될 때 찾아온다. – 로버트 콜리어",
     "노력하는 자에게 불가능은 없다. – 알렉산더 대왕",
@@ -34,9 +32,9 @@ quotes = [
     "작은 습관이 큰 차이를 만든다. – 제임스 클리어",
 ]
 
-# -----------------------------
 # 세션 상태 초기화
-# -----------------------------
+if "running" not in st.session_state:
+    st.session_state.running = False
 if "total_focus" not in st.session_state:
     st.session_state.total_focus = 0
 if "total_break" not in st.session_state:
@@ -44,38 +42,51 @@ if "total_break" not in st.session_state:
 if "total_cycles" not in st.session_state:
     st.session_state.total_cycles = 0
 
-# -----------------------------
-# 사용자 수동 입력
-# -----------------------------
-st.subheader("📝 오늘의 뽀모도로 기록하기")
+# 타이머 함수
+def run_timer(total_seconds, phase_name, color="🔴"):
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    for i in range(total_seconds):
+        mins, secs = divmod(total_seconds - i, 60)
+        timer_text = f"{color} {phase_name} 중: {mins:02d}:{secs:02d}"
+        status_text.markdown(f"### {timer_text}")
+        progress_bar.progress((i + 1) / total_seconds)
+        time.sleep(1)
 
-focus_input = st.number_input("집중 시간 (분)", min_value=0, value=0, step=1)
-break_input = st.number_input("휴식 시간 (분)", min_value=0, value=0, step=1)
-cycles_input = st.number_input("완료한 사이클 수", min_value=0, value=0, step=1)
+# 실행 중이 아닐 때만 입력창 보이기
+if not st.session_state.running:
+    focus_minutes = st.number_input("집중 시간 (분)", min_value=1, max_value=120, value=25, step=1)
+    break_minutes = st.number_input("휴식 시간 (분)", min_value=1, max_value=60, value=5, step=1)
+    cycles = st.number_input("반복 횟수 (사이클 수)", min_value=1, max_value=10, value=4, step=1)
 
-if st.button("✅ 기록 반영"):
-    st.session_state.total_focus += focus_input
-    st.session_state.total_break += break_input
-    st.session_state.total_cycles += cycles_input
-    st.success("📌 오늘의 기록이 반영되었습니다!")
+    if st.button("🚀 뽀모도로 시작하기"):
+        st.session_state.running = True
+        st.session_state.focus_minutes = focus_minutes
+        st.session_state.break_minutes = break_minutes
+        st.session_state.cycles = cycles
+        st.rerun()  # 화면 갱신해서 입력창 숨김
 
-# -----------------------------
-# 동기부여 메시지
-# -----------------------------
-if st.button("💬 동기부여 명언 보기"):
-    st.info(random.choice(quotes))
+# 실행 중일 때
+else:
+    for cycle in range(1, st.session_state.cycles + 1):
+        st.info(f"💡 *{random.choice(quotes)}*")
 
-# -----------------------------
+        st.success(f"✅ {cycle}번째 집중 시간 시작!")
+        run_timer(int(st.session_state.focus_minutes * 60), "집중", "🔥")
+        st.session_state.total_focus += st.session_state.focus_minutes
+
+        st.warning("☕ 휴식 시간 시작!")
+        run_timer(int(st.session_state.break_minutes * 60), "휴식", "💤")
+        st.session_state.total_break += st.session_state.break_minutes
+
+        st.session_state.total_cycles += 1
+
+    st.balloons()
+    st.success("🎉 모든 뽀모도로 사이클이 끝났습니다! 고생하셨어요 💪")
+    st.session_state.running = False  # 다시 설정 가능하도록 초기화
+
 # 통계 표시
-# -----------------------------
-st.subheader("📊 누적 공부 통계")
+st.subheader("📊 공부 시간 통계")
 st.write(f"총 집중 시간: **{st.session_state.total_focus} 분**")
 st.write(f"총 휴식 시간: **{st.session_state.total_break} 분**")
 st.write(f"완료한 사이클 수: **{st.session_state.total_cycles} 회**")
-st.write(f"총 공부 관련 시간: **{st.session_state.total_focus + st.session_state.total_break} 분**")
-
-# -----------------------------
-# 감성 마무리
-# -----------------------------
-st.markdown("---")
-st.markdown("🌿 오늘도 집중한 당신, 멋져요. 계속해서 꾸준히 나아가요!")
