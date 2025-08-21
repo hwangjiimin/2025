@@ -69,7 +69,7 @@ if not st.session_state.running:
 # 실행 중일 때
 else:
     for cycle in range(1, st.session_state.cycles + 1):
-        st.info(f"💡 {cycle}번째 사이클 명언: *{random.choice(quotes)}*")
+        st.info(f"💡 *{random.choice(quotes)}*")
 
         st.success(f"✅ {cycle}번째 집중 시간 시작!")
         run_timer(int(st.session_state.focus_minutes * 60), "집중", "🔥")
