@@ -8,6 +8,34 @@ st.set_page_config(page_title="뽀모도로 타이머 ⏳", page_icon="🍅", la
 st.title("🍅 뽀모도로 공부 타이머")
 st.write("집중 ⏰ → 휴식 ☕ → 다시 집중! 반복하며 효율적으로 공부하세요.")
 
+import streamlit as st
+
+# --- 배경 이미지 설정 함수 ---
+def set_background(image_url):
+    page_bg_img = f"""
+    <style>
+    [data-testid="stAppViewContainer"] {{
+        background-image: url("{image_url}");
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+    [data-testid="stHeader"], [data-testid="stToolbar"] {{
+        background: rgba(255,255,255,0);
+    }}
+    </style>
+    """
+    st.markdown(page_bg_img, unsafe_allow_html=True)
+
+# --- 배경 선택 UI ---
+st.sidebar.subheader("🎨 배경 테마 선택")
+bg_theme = st.sidebar.selectbox("원하는 배경을 선택하세요", ["기본", "숲속", "바다"])
+
+if bg_theme == "숲속":
+    set_background("https://images.unsplash.com/photo-1506765515384-028b60a970df?auto=format&fit=crop&w=1350&q=80")
+elif bg_theme == "바다":
+    set_background("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1350&q=80")
+
 # 동기부여 명언 리스트
 quotes = [
     "성공은 작은 노력이 반복될 때 찾아온다. – 로버트 콜리어",
@@ -66,6 +94,10 @@ if not st.session_state.running:
         st.session_state.cycles = cycles
         st.rerun()  # 화면 갱신해서 입력창 숨김
 
+if st.button("⏹ 타이머 중단"):
+    st.session_state.running = False
+    st.experimental_rerun()
+    
 # 실행 중일 때
 else:
     for cycle in range(1, st.session_state.cycles + 1):
