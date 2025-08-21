@@ -90,25 +90,6 @@ if "total_break" not in st.session_state:
 if "total_cycles" not in st.session_state:
     st.session_state.total_cycles = 0
 
-# -----------------------------
-# 타이머 함수
-# -----------------------------
-def run_timer(total_seconds, phase_name, color="🔴"):
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    start_time = datetime.datetime.now()
-    end_time = start_time + datetime.timedelta(seconds=total_seconds)
-    
-    while datetime.datetime.now() < end_time:
-        if st.session_state.stop_timer:
-            break
-        remaining = end_time - datetime.datetime.now()
-        mins, secs = divmod(remaining.seconds, 60)
-        timer_text = f"{color} {phase_name} 중: {mins:02d}:{secs:02d}"
-        status_text.markdown(f"### {timer_text}")
-        elapsed = (datetime.datetime.now() - start_time).total_seconds()
-        progress_bar.progress(min(elapsed / total_seconds, 1.0))
-        time.sleep(1)
 
 # -----------------------------
 # 사용자 입력
@@ -126,14 +107,7 @@ if not st.session_state.running:
         st.session_state.cycles = cycles
         st.rerun()
 
-# -----------------------------
-# 타이머 실행
-# -----------------------------
-else:
-    if st.button("⏹ 타이머 중단하기"):
-        st.session_state.stop_timer = True
-        st.session_state.running = False
-        st.warning("⏹ 타이머가 중단되었습니다.")
+
     
     if not st.session_state.stop_timer:
         for cycle in range(1, st.session_state.cycles + 1):
