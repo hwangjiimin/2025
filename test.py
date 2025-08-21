@@ -10,6 +10,8 @@ st.write("집중 ⏰ → 휴식 ☕ → 다시 집중! 반복하며 효율적으
 
 import streamlit as st
 
+import streamlit as st
+
 # --- 배경 이미지 설정 함수 ---
 def set_background(image_url):
     page_bg_img = f"""
